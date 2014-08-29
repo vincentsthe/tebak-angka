@@ -2,7 +2,7 @@ define([], function() {
 	var tc = [];
 	tc[1] = [8, 3, 2];
 	tc[2] = [64, 6, 15];
-	var header = [".1.....", "..2...."];
+	var header = ["", ".1.....", "..2...."];
 	var testcase = {
 		getNVariable: function(numTC) {
 			return tc[numTC][0];
