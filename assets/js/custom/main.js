@@ -1,19 +1,18 @@
-define(['guesser', 'storage', 'jquery', 'testcase', 'notifier', 'textarea'], 
-	function(guesser, storage, $, testcase, notifier, textarea) {
+define(['storage', 'jquery', 'testcase', 'notifier', 'textarea', 'message'], 
+	function(storage, $, testcase, notifier, textarea, message) {
 	
 	$(document).ready(function() {
 		var done;
 		var currentTC;
 		var lock;
-		var currentGuess;
 		var remaining;
 
 		var answer = function(x) {
 			textarea.insertRight("0 " + x);
 			if(x === testcase.getAnswer(currentTC)) {
-				notifier.createAlert("Jawaban Anda Benar!");
+				notifier.createAlert("Correct Answer!");
 			} else {
-				notifier.createAlert("Jawaban Anda Salah!");
+				notifier.createAlert("Wrong Answer!");
 			}
 			done = true;
 		};
@@ -28,43 +27,48 @@ define(['guesser', 'storage', 'jquery', 'testcase', 'notifier', 'textarea'],
 			overlay.appendChild(notifBox);
 
 			var title = document.createElement("p");
-			title.innerHTML = "Pilih Jawaban Anda";
+			title.innerHTML = "Write your guessed number.";
 			notifBox.appendChild(title);
 
-			var appendButton = function(x) {
-				var div = document.createElement("div");
-				div.setAttribute("class", "col-md-4");
-				notifBox.appendChild(div);
+			var input = document.createElement("input");
+			input.setAttribute("class", "form-control answer");
+			input.setAttribute("id", "answer");
+			notifBox.appendChild(input);
 
-				var btn = document.createElement("div");
-				btn.setAttribute("id", "answer" + x);
-				btn.setAttribute("class", "number");
-				btn.innerHTML = x;
-				div.appendChild(btn);
-
-				$("#answer" + x).click(function() {
-					$("#overlay").remove();
-					answer(x);
-				});
-			};
-
-			for(var i=1 ; i<=testcase.getNVariable(currentTC) ; i++) {
-				appendButton(i);
-			}
-
-			var clear = document.createElement("div");
-			clear.setAttribute("class", "clearfix");
-			notifBox.appendChild(clear);
+			var answerButton = document.createElement("button");
+			answerButton.setAttribute("class", "btn btn-warning notif-button");
+			answerButton.setAttribute("id", "answer-button");
+			notifBox.appendChild(answerButton);
 
 			var button = document.createElement("button");
-			button.setAttribute("class", "btn btn-warning");
+			button.setAttribute("class", "btn btn-danger notif-button");
 			button.setAttribute("id", "notif-button");
 			notifBox.appendChild(button);
 
-			$("#notif-button").html("Batalkan");
+			$("#notif-button").html("Cancel");
+			$("#answer-button").html("Answer");
 
 			$("#notif-button").click(function() {
 				$("#overlay").remove();
+			});
+
+			$("#answer-button").click(function() {
+				var ans = parseInt($("#answer").val());
+				$("#overlay").remove();
+				if(isNaN(ans)) {
+					notifier.createAlert("Invalid Answer");
+				} else {
+					if(ans == testcase.getAnswer(currentTC)) {
+						notifier.createAlert("Correct Answer!");
+						setSubtaskTrue(currentTC);
+						colorSubtask();
+						done = true;
+					} else {
+						notifier.createAlert("Wrong Answer!");
+						done = true;
+						$("#warning").html("You lose! click on reset button to play again.");
+					}
+				}
 			});
 		};
 
@@ -77,48 +81,61 @@ define(['guesser', 'storage', 'jquery', 'testcase', 'notifier', 'textarea'],
 		}
 
 		var tebak = function() {
-			var isSame = false;
-			var isClose = false;
-
-
 			if(remaining == 0) {
-				notifier.createAlert("Batas anda menebak telah habis.");
+				notifier.createAlert("You may not submit guess anymore.");
 			} else {
+				var str = $("#text").val();
+				var array = str.split(" ");
+
+				var currentGuess = [];
+
+				for(var i=0 ; i<array.length ; i++) {
+
+					if(!isNaN(parseInt(array[i]))) {
+						var ada = false;
+						for(var j=0 ; j<currentGuess.length ; j++) {
+							if(currentGuess[j] == parseInt(array[i])) {
+								ada = true;
+							}
+						}
+
+						if((!ada) && (parseInt(array[i]) <= testcase.getNVariable(currentTC)) && (parseInt(array[i]) > 0)) {
+							currentGuess.push(parseInt(array[i]));
+						}
+					}
+				}
 				if(currentGuess.length > 0) {
 					var str = currentGuess.length + "";
 					for(var i=0 ; i<currentGuess.length ; i++) {
 						str = str + " " + currentGuess[i];
 					}
-					textarea.insertRight(str);
+					textarea.insertLeft(str);
+
+					var isSame = false;
+					var isClose = false;
 
 					for(var i=0 ; i<currentGuess.length ; i++) {
+						if(Math.abs(currentGuess[i] - testcase.getAnswer(currentTC)) == 1) {
+							isClose = true;
+						}
 						if(currentGuess[i] == testcase.getAnswer(currentTC)) {
 							isSame = true;
-						} else if(Math.abs(currentGuess[i] - testcase.getAnswer(currentTC)) == 1) {
-							isClose = true;
 						}
 					}
 
 					if(isSame === true) {
-						notifier.createAlert("YA");
-						textarea.insertLeft("YA");
+						textarea.insertRight("YA");
 					} else if(isClose === true) {
-						notifier.createAlert("BISAJADI");
-						textarea.insertLeft("BISAJADI");
+						textarea.insertRight("BISAJADI");
 					} else {
-						notifier.createAlert("TIDAK");
-						textarea.insertLeft("TIDAK");
+						textarea.insertRight("TIDAK");
 					}
-
 					remaining--;
 				} else {
-					notifier.createAlert("Tidak bisa menebak himpunan kosong.");
+					notifier.createAlert("Your number set is empty.");
 				}
 			}
-
-			for(var i=currentGuess.length-1 ; i>=0 ; i--) {
-				removeTemp(currentGuess[i]);
-			}
+			$("#text").val("");
 		}
 
 		var setSubtaskTrue = function(numTC) {
@@ -126,62 +143,15 @@ define(['guesser', 'storage', 'jquery', 'testcase', 'notifier', 'textarea'],
 			colorSubtask();
 		};
 
-		var removeTemp = function(x) {
-			$("#divNumber" + x).remove();
-			var index = currentGuess.indexOf(x);
-			currentGuess.splice(index, 1);
-			$("#number" + x).css("visibility", "visible");
-		};
-
-		var addToGuess = function(x) {
-			currentGuess.push(x);
-			var outerDiv = document.createElement("div");
-			outerDiv.setAttribute("id", "divNumber" + x);
-			outerDiv.setAttribute("class", "col-md-3");
-			document.getElementById("guess").appendChild(outerDiv);
-
-			var number = document.createElement("div");
-			number.setAttribute("class", "number");
-			number.setAttribute("id", "numberTemp" + x);
-			number.innerHTML = x;
-			outerDiv.appendChild(number);
-
-			$("#number" + x).css("visibility", "hidden");
-			$("#numberTemp" + x).click(function() {
-				removeTemp(x);
-			});
-		};
-
-		var appendToNumberBox = function(x) {
-			var outerDiv = document.createElement("div");
-			outerDiv.setAttribute("class", "col-md-4");
-			document.getElementById("numberBox").appendChild(outerDiv);
-
-			var number = document.createElement("div");
-			number.setAttribute("class", "number");
-			number.setAttribute("id", "number" + x);
-			number.innerHTML = x;
-			outerDiv.appendChild(number);
-
-			$("#number" + x).click(function() {
-				addToGuess(x);
-			});
-		};
-
 		var init = function(numTC) {
 			currentTC = numTC;
 			colorSubtask();
 			done = false;
 			textarea.reset();
-			currentGuess = [];
-			$("#guess").empty();
-			$("#numberBox").empty();
+			$("#warning").html("");
+			$("#text").val("");
 			textarea.insertLeft(testcase.getNVariable(currentTC) + " " + testcase.getKVariable(currentTC));
 			remaining = testcase.getKVariable(currentTC);
-			for(var i=1 ; i<=testcase.getNVariable(currentTC) ; i++) {
-				appendToNumberBox(i);
-			}
-
 		};
 
 		init(1);
@@ -204,6 +174,18 @@ define(['guesser', 'storage', 'jquery', 'testcase', 'notifier', 'textarea'],
 
 		$("#play").click(function() {
 			init($("#testcase").val());
+		});
+
+		$("#help").click(function() {
+			notifier.createText(message.help());
+		});
+
+		$("#about").click(function() {
+			notifier.createText(message.about());
+		});
+
+		$("#source").click(function() {
+			notifier.createSource(message.code());
 		});
 	});
 
